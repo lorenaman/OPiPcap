@@ -1,0 +1,1 @@
+plink.exe -ssh -pw toor -P 60001 root@twogreenfrogs.com -m commands.txt > log.txt
