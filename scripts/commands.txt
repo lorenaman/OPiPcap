@@ -1,8 +1,0 @@
-ls -al /tmp
-echo
-cat /etc/passwd
-echo
-hostname
-echo
-ifconfig
-sleep 5

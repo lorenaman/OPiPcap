@@ -1,3 +1,4 @@
 *.log
 id*
-
+build
+ex_scripts

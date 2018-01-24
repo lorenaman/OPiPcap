@@ -1,1 +1,0 @@
-plink.exe -X -ssh -pw orangepi orangepi@10.0.0.1 "sudo linssid"

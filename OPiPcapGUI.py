@@ -1,3 +1,4 @@
+
 import time
 import ttk
 import threading
@@ -29,29 +30,25 @@ def get_logger(name=None, level=logging.DEBUG, log_file='opi_pcap.log'):
     if log file exists, keep log or ignore log messages
     """
     # logging control flag. If True, print to stdout, or log file
-    IS_UNDER_TEST = True
+    IS_UNDER_TEST = False
 
     logger = logging.getLogger(name or __name__)
     logger.setLevel(level)       
     formatter = logging.Formatter('%(asctime)s[%(lineno)s] %(message)s')
-    
-    if IS_UNDER_TEST:
-        s_handler = logging.StreamHandler()
-        s_handler.setFormatter(formatter)
-        logger.addHandler(s_handler)
-    else:
-        if not os.path.isfile(log_file):
-        # if file doesn't exist, disable log.
-        # this is done for troubleshooting in case after release
-            logger.disabled = True
-    
-        f_handler = logging.FileHandler(log_file)
-        f_handler.setFormatter(formatter)
-        logger.addHandler(f_handler)
+    logger.disabled = False if IS_UNDER_TEST or os.path.isfile('debug') else True
+
+    f_handler = logging.FileHandler(log_file)
+    f_handler.setFormatter(formatter)
+    logger.addHandler(f_handler)
         
     return logger
 
+def pyinstaller_resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath('.'), relative_path)
 
+        
 class OPi(object):
     """
     Orange Pi Zero class
@@ -217,20 +214,38 @@ class OPiGUI(tk.Tk):
     
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        self.tk_setPalette(background='ghost white')
-        self.title('OPi-Pcap Control Panel')
-        self.resizable(width=False, height=False)
-        self.option_add('*Font', 'Courier 10')
-        self.iconbitmap(default='logo.ico')
-        self._create_menu()
-        self._create_body()
 
         # logging
         self.log_file = 'opi_pcap.log'
         self.logger = get_logger(log_file=self.log_file)
-                                  
+        
+        # for pyinstaller to include everything in one executable
+        try:
+            #self.iconbitmap(default='resources\logo.ico')
+            self.logo = pyinstaller_resource_path('resources\logo.ico')            
+            self.plink = pyinstaller_resource_path('resources\plink.exe')
+            self.ssh_key = pyinstaller_resource_path('resources\id_rsa_putty.ppk')
+            self.say_yes = pyinstaller_resource_path('resources\say.yes')
+        except Exception as e:
+            self.logger.exception('cannot find resource files')
+            try:
+                #python 2.7
+                tkMessageBox.showerror('Error', 'Cannot find resource files')
+            except ImportError:
+                #python 3.x
+                messagebox.showerror('Error', 'Cannot find resource files')
+            return
+
+        self.tk_setPalette(background='ghost white')
+        self.title('OPi-Pcap Control Panel')
+        self.resizable(width=False, height=False)
+        self.option_add('*Font', 'Courier 10')
+        self.iconbitmap(default=self.logo)
+        
+        self._create_menu()
+        self._create_body()
         self.opi = OPi(logger=self.logger)
-                                  
+        
         self.SINGLE_BAND = OPi.CHANNELS_24G
         self.DUAL_BAND = OPi.CHANNELS_24G + OPi.CHANNELS_5G
 
@@ -241,24 +256,25 @@ class OPiGUI(tk.Tk):
         self.IS_SITE_SURVEY_RUNNING = False
         self.IS_WIRESHARK_RUNNING = False
         self.SHUTDOWN_IN_PROGRESS = False
+        self.IS_WIRESHARK_INSTALLED = False
         
         # device is ready only when pingable and wifi interface is checked and frequency set is done.
-        self.IS_DEVICE_READY = self.IS_DEVICE_CONNECTED and self.IS_WIFI_INFO_AVAILABLE and self.IS_FREQUENCY_SET
+        self.IS_DEVICE_READY = self.IS_DEVICE_CONNECTED and self.IS_WIFI_INFO_AVAILABLE and self.IS_FREQUENCY_SET  
         
-        # commands for gui program to execute
-        self.WIFI_INFO = ('programs\plink.exe -ssh -i auth\id_rsa_putty.ppk -pw orangepi orangepi@10.0.1.1 '
-                          '"wifi_info.sh" < programs/tcpdumptool.yes')
-        self.MONITOR_MODE = Template('programs\plink.exe -ssh -i auth/id_rsa_putty.ppk -pw orangepi '
+        # commands for gui program to execute            
+        self.WIFI_INFO = (self.plink + ' -ssh -i ' + self.ssh_key + ' -pw orangepi orangepi@10.0.1.1 '
+                          '"wifi_info.sh" < ' + self.say_yes)
+        self.MONITOR_MODE = Template(self.plink + ' -ssh -i ' + self.ssh_key + ' -pw orangepi '
                                      'orangepi@10.0.1.1 "sudo monitor_mode.sh wlan1 $channel"')
-        self.SITE_SURVEY = Template('programs\plink.exe -ssh -i auth/id_rsa_putty.ppk -pw orangepi '
+        self.SITE_SURVEY = Template(self.plink + ' -ssh -i ' + self.ssh_key + ' -pw orangepi '
                                     'orangepi@10.0.1.1 "site_survey.sh wlan1 $timeout"')
-        self.START_WIRESHARK = Template('programs\plink.exe -ssh -i auth/id_rsa_putty.ppk -pw orangepi orangepi@10.0.1.1 '
+        self.START_WIRESHARK = Template(self.plink + ' -ssh -i ' + self.ssh_key + ' -pw orangepi orangepi@10.0.1.1 '
                                 '"sudo tcpdump -i wlan1 -U -w - 2> /dev/null"'
                                 '| ("C:\Program Files\Wireshark\Wireshark.exe" $filter_option $filter_expression "-k" "-i" "-")')
         self.STOP_WIRESHARK = 'taskkill /F /IM wireshark.exe'
         self.STOP_PLINK = 'taskkill /F /IM plink.exe'
-        self.STOP_DEVICE = ('programs\plink.exe -ssh -i auth\id_rsa_putty.ppk -pw orangepi orangepi@10.0.1.1 '
-                                   '"sudo sync; sync; shutdown -h now" < programs/tcpdumptool.yes')
+        self.STOP_DEVICE = (self.plink + ' -ssh -i ' + self.ssh_key + ' -pw orangepi orangepi@10.0.1.1 '
+                                   '"sudo sync; sync; shutdown -h now"')       
         # map commands for ease of exchanging messages with Thread
         self.CMD_MAPPING ={'WIFI_INFO': self.WIFI_INFO,
                            'SITE_SURVEY': self.SITE_SURVEY,
@@ -281,9 +297,23 @@ class OPiGUI(tk.Tk):
         # thread to execute cmd and return result to main thread
         self.exec_cmd_thread = ExecCmdThread(self.opi, self.queue_cmd_request, self.queue_cmd_response, logger=self.logger)
         self.exec_cmd_thread.start()
-
+        
         # self._update_gui_status: check queue messages from Threads and update GUI display
         self.after(100, self._update_gui_status)
+
+        # check if wireshark is installed
+        if not os.path.isfile('C:\Program Files\Wireshark\Wireshark.exe'):
+            self.IS_WIRESHARK_INSTALLED = False
+            self.logger.error('Cannot find Wireshark program.')
+            try:
+                #python 2.7
+                tkMessageBox.showerror('Error', 'Cannot find Wireshark Program\nPlease install Wireshark first and restart program')
+            except ImportError:
+                #python 3.x
+                messagebox.showerror('Error', 'Cannot find Wireshark Program\nPlease install Wireshark first and restart program')
+            self._quit()
+        else:
+            self.IS_WIRESHARK_INSTALLED = True
         
     def _create_menu(self):
         pass
@@ -471,7 +501,7 @@ class OPiGUI(tk.Tk):
 
                 self.logger.debug('filter option: {}, filter expression: {}'.format(filter_option, filter_expression))
                     
-                if not self.IS_WIRESHARK_RUNNING:
+                if not self.IS_WIRESHARK_RUNNING and self.IS_WIRESHARK_INSTALLED:
                     self.IS_WIRESHARK_RUNNING = True    
                     mapping_cmd = self.CMD_MAPPING[cmd].substitute(filter_option=filter_option, filter_expression=filter_expression)
                 else:
@@ -507,6 +537,13 @@ class OPiGUI(tk.Tk):
                 else:
                     return
             elif cmd == 'STOP_DEVICE':
+                # double-confirm 
+                try:
+                    yes = tkMessageBox.askyesno('Exit', 'Do you really want to shutdown device?')
+                except:
+                    yes = messagebox.askyesno('Exit', 'Do you really want to shutdown device??')
+                if not yes:
+                    return
                 mapping_cmd = self.CMD_MAPPING[cmd]
             else:
                 mapping_cmd = self.CMD_MAPPING[cmd]
@@ -585,7 +622,10 @@ class OPiGUI(tk.Tk):
                 self.IS_SITE_SURVEY_RUNNING = False
                 self.logger.debug('got site survey result: {}'.format(stdout.strip('\n').split('Unable to use key file')[0]))
                 self._show_site_survey_result(stdout.strip('\n').split('Unable to use key file')[0])
-                
+
+                # here need to re configure wifi channel as site_survey hopps different channels
+                self._send_cmd_to_thread('MONITOR_MODE')
+            
             elif CMD_TYPE == 'MONITOR_MODE':
                 # if fail, show error message
                 if not success or 'Error for wireless request' in stdout or 'Unable to open connection' in stdout:
@@ -683,7 +723,7 @@ class OPiGUI(tk.Tk):
                 #python 3.x
                 messagebox.showerror('Error', 'Device Shutdown In Progress\nPlease wait...')
             return
-                
+             
         try:
             yes = tkMessageBox.askyesno('Exit', 'Do you really want to quit?')
         except:
