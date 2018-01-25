@@ -14,6 +14,7 @@ Hardware:
    3. Alfa AWUS036NHA, 2.4G Single band
    4. Netgear WNDA3100v1, 2.4/5G Dual band
    5. WTXUP 150N, 2.4G Single band
+   6. Linksys WUSB54GC, 2.4G Single band
    
 Software:
  - OPiPcap to control Orange Pi Zero, capture wifi packets, and display in Windows in real time.
