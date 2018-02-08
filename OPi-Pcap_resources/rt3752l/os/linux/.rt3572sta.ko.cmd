@@ -1,0 +1,1 @@
+cmd_/home/orangepi/Downloads/rt3752l/os/linux/rt3572sta.ko := ld -r  -T /usr/src/linux-headers-3.4.113-sun8i/scripts/module-common.lds --build-id  -o /home/orangepi/Downloads/rt3752l/os/linux/rt3572sta.ko /home/orangepi/Downloads/rt3752l/os/linux/rt3572sta.o /home/orangepi/Downloads/rt3752l/os/linux/rt3572sta.mod.o
