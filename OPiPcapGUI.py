@@ -1,4 +1,7 @@
-
+'''
+To do:
+1. parse out wifi info from a few approved wifi dongles and just display
+'''
 import time
 import ttk
 import threading
@@ -35,7 +38,10 @@ def get_logger(name=None, level=logging.DEBUG, log_file='opi_pcap.log'):
     logger = logging.getLogger(name or __name__)
     logger.setLevel(level)       
     formatter = logging.Formatter('%(asctime)s[%(lineno)s] %(message)s')
-    logger.disabled = False if IS_UNDER_TEST or os.path.isfile('debug') else True
+    if IS_UNDER_TEST or os.path.isfile('debug') or os.path.isfile('debug.txt'):
+        logger.disabled = False 
+    else:
+        logger.disabled = True
 
     f_handler = logging.FileHandler(log_file)
     f_handler.setFormatter(formatter)
@@ -603,7 +609,12 @@ class OPiGUI(tk.Tk):
 
                     # strip spaces and also 'Unable to use key file' which might come if ssh key auth fails.
                     # if ssh key auth fails, plink tries with password.
-                    self.lbl_wifi_interface_val['text'] = stdout.split('Unable to use key file')[0].strip()
+                    # ToDo: just parse out wifi info from stdout using regular expression
+                    if "The server's host key" in stdout:
+                        #this is first time so need to parse output
+                        self.lbl_wifi_interface_val['text'] = stdout.split('(y/n)')[-1].strip()
+                    else:
+                        self.lbl_wifi_interface_val['text'] = stdout.split('Unable to use key file')[0].strip()
                     self.IS_WIFI_INFO_AVAILABLE = True
                     # only after device is connected and wifi info is available, config monitor mode
                     self._send_cmd_to_thread('MONITOR_MODE')

@@ -1,0 +1,14 @@
+#WTXUP 150N WLAN USB: 2.4G Single Band
+#SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="44:33:4c:47:e1:f0", NAME="wlan1"
+
+#Riverbed AirPcap NX: 2.4G/5G Dual Band
+#SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="00:80:48:69:34:51", NAME="wlan1"
+
+#Netgear WNDA3100v1: 2.4G/5G Dual Band
+#SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="30:46:9a:1b:87:14", NAME="wlan1"
+
+#Alfa AWUS036NEH: 2.4G Single Band
+#SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="00:c0:ca:95:f8:de", NAME="wlan1"
+
+#Alfa AWUS036NHA: 2.4G Single Band
+#SUBSYSTEM=="net", ACTION=="add", ATTR{address}=="00:c0:ca:97:36:e8", NAME="wlan1"
